@@ -1,32 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <!-- 打包 App 關鍵：防止縮放與適應全螢幕 -->
+    <title>The Echoing Dark</title>
+    <!-- 行動裝置 App 優化 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>The Echoing Dark</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="EchoingDark">
+    
     <style>
-        /* 禁止頁面彈性滾動與選取文字 */
-        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
         body { margin: 0; background: #000; color: #fff; font-family: 'Courier New', monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; touch-action: none; }
         
         #arrow-container { width: 50px; height: 60px; position: relative; margin-bottom: 5px; }
-        #arrow { 
-            width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; 
-            border-bottom: 45px solid #333; position: absolute; left: 50%; top: 5px; transform: translateX(-50%); 
-        }
-        #game-container { position: relative; width: 90vw; height: 90vw; max-width: 400px; max-height: 400px; border: 4px solid #1a1a1a; overflow: hidden; background: #000; }
+        #arrow { width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 45px solid #ddd; position: absolute; left: 50%; top: 5px; transform: translateX(-50%); }
+        
+        #game-container { position: relative; width: 90vw; height: 90vw; max-width: 350px; max-height: 350px; border: 4px solid #1a1a1a; overflow: hidden; background: #000; }
         canvas { display: block; width: 100%; height: 100%; }
-        #subtitle { position: absolute; bottom: 15px; width: 100%; text-align: center; font-size: 14px; color: #800; font-weight: bold; text-shadow: 1px 1px 2px #000; opacity: 0; transition: opacity 0.5s; pointer-events: none; z-index: 10; padding: 0 10px; box-sizing: border-box; }
         
-        #joystick-zone { width: 140px; height: 140px; background: rgba(255,255,255,0.05); border: 2px solid #333; border-radius: 50%; margin-top: 20px; position: relative; }
-        #joystick-knob { width: 50px; height: 50px; background: #555; border-radius: 50%; position: absolute; top: 45px; left: 45px; pointer-events: none; }
+        #story-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 500; cursor: pointer; text-align: center; padding: 20px; }
+        #story-text { color: #fff; font-size: 20px; font-weight: bold; text-shadow: 0 0 15px red; margin-bottom: 20px; pointer-events: none; }
         
-        #overlay, #end-screen { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px; }
-        #end-screen { display: none; background: rgba(30, 0, 0, 0.95); z-index: 200; }
-        .btn { background: #222; color: #fff; border: 1px solid #666; padding: 15px 40px; font-size: 20px; font-family: inherit; cursor: pointer; margin: 15px; min-width: 220px; border-radius: 5px; }
+        #warning-overlay { position: absolute; inset: 0; background: rgba(200,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 400; font-size: 45px; color: #f00; font-weight: bold; letter-spacing: 5px; animation: blink 0.3s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .shake { animation: shakeAnim 0.1s infinite; }
+        @keyframes shakeAnim { 0% { transform: translate(4px, 4px); } 50% { transform: translate(-4px, -4px); } 100% { transform: translate(4px, -4px); } }
+
+        #joystick-zone { width: 140px; height: 140px; background: rgba(255,255,255,0.05); border: 2px solid #333; border-radius: 50%; margin-top: 25px; position: relative; }
+        #joystick-knob { width: 50px; height: 50px; background: #666; border-radius: 50%; position: absolute; top: 45px; left: 45px; pointer-events: none; }
+        
+        #overlay, #end-screen { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; text-align: center; }
+        .btn { background: #222; color: #fff; border: 1px solid #666; padding: 15px 40px; font-size: 20px; cursor: pointer; margin: 10px; min-width: 180px; border-radius: 8px; }
         .btn:active { background: #444; }
     </style>
 </head>
@@ -34,199 +40,218 @@
 
 <div id="arrow-container"><div id="arrow"></div></div>
 <div id="game-container">
-    <div id="subtitle"></div>
-    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div id="story-overlay"><div id="story-text"></div><div style="color:#fff; font-size:12px; text-decoration: underline; margin-top:10px;">TAP TO PROCEED</div></div>
+    <div id="warning-overlay">WARNING</div>
+    <canvas id="gameCanvas" width="350" height="350"></canvas>
 </div>
 <div id="joystick-zone"><div id="joystick-knob"></div></div>
 
 <div id="overlay">
-    <h1 style="letter-spacing: 5px; margin-bottom: 5px;">THE ECHOING DARK</h1>
-    <p style="color:#666; font-size:12px; margin-bottom:20px;">Justice is coming...</p>
-    <button class="btn" id="start-normal">NORMAL</button>
-    <button class="btn" id="start-hard" style="color: #f00; border-color: #800;">HARD</button>
+    <h1 style="letter-spacing: 8px; color: #800; font-size: 28px;">THE ECHOING DARK</h1>
+    <button class="btn" onclick="startGame('normal')">NORMAL</button>
+    <button class="btn" onclick="startGame('hard')" style="color:#f00; border-color: #800;">HARD</button>
 </div>
 
-<div id="end-screen">
-    <div id="end-msg" style="font-size: 18px; line-height: 1.6; margin-bottom: 30px;"></div>
+<div id="end-screen" style="display:none;">
+    <div id="end-msg" style="font-size: 20px; margin-bottom:30px; color: #f00; font-weight:bold; padding: 0 20px;"></div>
     <button class="btn" onclick="location.reload()">RESTART</button>
 </div>
 
 <script>
-const WORLD_SIZE = 100, GRID_RES = 40;
+/** 核心全局變量 **/
+const WORLD_SIZE = 100, GRID_RES = 35;
 const melodyNotes = [220.0, 233.1, 261.6, 311.1, 349.2, 415.3];
-let player, greyDot, redDot, enemies, map, gameState, redFollowing, isGameOver, audioCtx, mainGain, difficulty;
-let noteIndex = 0;
-
-/** 音頻啟動：支援 App 喚醒 **/
-function startAudio() {
-    try {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            mainGain = audioCtx.createGain();
-            mainGain.connect(audioCtx.destination);
-            mainGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            const playLoop = () => {
-                if(isGameOver) return;
-                const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.value = melodyNotes[noteIndex % 6] * (gameState === 'RETURN_GREY' ? 0.4 : 1);
-                g.gain.setValueAtTime(0, audioCtx.currentTime);
-                g.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 0.1);
-                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
-                osc.connect(g).connect(mainGain);
-                osc.start(); osc.stop(audioCtx.currentTime + 1.5);
-                noteIndex++;
-                setTimeout(playLoop, difficulty === 'hard' ? 850 : 1250);
-            };
-            playLoop();
-        } else { audioCtx.resume(); }
-    } catch(e) {}
-}
-
-function playSfx(f, d) {
-    if(!audioCtx) return;
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.frequency.value = f;
-    g.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime);
-    g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + d);
-    o.connect(g).connect(mainGain);
-    o.start(); o.stop(audioCtx.currentTime + d);
-}
-
-/** 遊戲設置 **/
-function setupGame(mode) {
-    difficulty = mode;
-    isGameOver = false; gameState = 'FIND_GREY'; redFollowing = false; 
-    enemies = []; map = [];
-    
-    for (let y = 0; y < WORLD_SIZE; y++) {
-        map[y] = [];
-        for (let x = 0; x < WORLD_SIZE; x++) {
-            map[y][x] = (x < 2 || x > 97 || y < 2 || y > 97 || Math.random() < 0.28) ? 1 : 0;
-        }
-    }
-
-    const clearBox = (cx, cy) => {
-        let ix = Math.floor(cx), iy = Math.floor(cy);
-        for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) {
-            if(map[iy+i]) map[iy+i][ix+j] = 0;
-        }
-    };
-
-    const getSafePoint = (minDist = 0) => {
-        let limit = 0;
-        while(limit < 60) {
-            let tx = 5 + Math.random() * 90, ty = 5 + Math.random() * 90;
-            let d = player ? Math.sqrt((tx-player.x)**2+(ty-player.y)**2) : 999;
-            if(map[Math.floor(ty)][Math.floor(tx)] === 0 && d >= minDist) return {x: tx, y: ty};
-            limit++;
-        }
-        let fx = 15 + Math.random() * 70, fy = 15 + Math.random() * 70;
-        clearBox(fx, fy); return {x: fx, y: fy};
-    };
-
-    player = {x: 50.5, y: 50.5, vx: 0, vy: 0}; clearBox(50, 50);
-    greyDot = getSafePoint(20); clearBox(greyDot.x, greyDot.y);
-
-    document.getElementById('overlay').style.display = 'none';
-    requestAnimationFrame(gameLoop);
-}
+let map = [], player = {x:50.5, y:50.5, vx:0, vy:0}, greyDot = {x:0,y:0}, redDot = {x:0,y:0};
+let enemies = [], gameState = 'FIND_GREY', difficulty = 'normal', isPaused = false, redFollowing = false, isGameOver = false;
+let audioCtx, mainGain, noteIndex = 0;
 
 const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
-const arrow = document.getElementById('arrow'), subtitle = document.getElementById('subtitle');
+const arrow = document.getElementById('arrow');
 
-function gameLoop() {
-    if(isGameOver) return;
-    const baseSpd = 0.055;
-    let pSpd = redFollowing ? baseSpd * 0.9 : baseSpd;
-    
-    let nX = player.x + player.vx * pSpd, nY = player.y + player.vy * pSpd;
-    if (map[Math.floor(player.y)][Math.floor(nX + (player.vx > 0 ? 0.25 : -0.25))] === 0) player.x = nX;
-    if (map[Math.floor(nY + (player.vy > 0 ? 0.25 : -0.25))][Math.floor(player.x)] === 0) player.y = nY;
-    
-    enemies.forEach(e => {
-        let dx = player.x - e.x, dy = player.y - e.y, d = Math.sqrt(dx*dx + dy*dy);
-        if(d < 0.45) endGame('Justice may be delayed, but it will never be absent');
-        let eSpd = pSpd; 
-        let vx = (dx/d) * eSpd, vy = (dy/d) * eSpd;
-        if (map[Math.floor(e.y)][Math.floor(e.x + (vx > 0 ? 0.2 : -0.2))] === 0) e.x += vx;
-        else if (map[Math.floor(e.y + (vy > 0 ? 0.2 : -0.2))][Math.floor(e.x)] === 0) e.y += (dy > 0 ? eSpd : -eSpd);
-        if (map[Math.floor(e.y + (vy > 0 ? 0.2 : -0.2))][Math.floor(e.x)] === 0) e.y += vy;
-        else if (map[Math.floor(e.y)][Math.floor(e.x + (vx > 0 ? 0.2 : -0.2))] === 0) e.x += (dx > 0 ? eSpd : -eSpd);
-    });
-    
-    let target = (gameState === 'FIND_GREY' || gameState === 'RETURN_GREY') ? greyDot : redDot;
-    let tdx = target.x - player.x, tdy = target.y - player.y, td = Math.sqrt(tdx*tdx + tdy*tdy);
-    arrow.style.transform = `translateX(-50%) rotate(${Math.atan2(tdy, tdx) + Math.PI/2}rad)`;
-    let c = Math.min(180, td * 8); arrow.style.borderBottomColor = `rgb(${c},${c},${c})`;
-    
-    if (td < 0.6) {
-        if (gameState === 'FIND_GREY') {
-            gameState = 'FIND_RED';
-            let rx = 10, ry = 10, limit = 0;
-            while(limit < 50) {
-                rx = 10 + Math.random()*80; ry = 10 + Math.random()*80;
-                if(Math.sqrt((rx-greyDot.x)**2+(ry-greyDot.y)**2) > 40 && map[Math.floor(ry)][Math.floor(rx)] === 0) break;
-                limit++;
-            }
-            redDot = {x: rx, y: ry};
-            subtitle.innerText = "Help Me find the Red Dot"; subtitle.style.opacity = 1;
-            playSfx(400, 0.5); setTimeout(()=>subtitle.style.opacity=0, 3000);
-        } else if (gameState === 'FIND_RED' && !redFollowing) {
-            gameState = 'RETURN_GREY'; redFollowing = true;
-            subtitle.innerText = "No…no…please no"; subtitle.style.opacity = 1;
-            playSfx(300, 0.8); setTimeout(()=>subtitle.style.opacity=0, 3000);
-            for(let i=0; i<(difficulty==='hard'?25:15); i++) {
-                let ex = 5+Math.random()*90, ey = 5+Math.random()*90;
-                while(map[Math.floor(ey)][Math.floor(ex)] === 1) { ex = 5+Math.random()*90; ey = 5+Math.random()*90; }
-                enemies.push({x:ex, y:ey});
-            }
-        } else if (gameState === 'RETURN_GREY' && redFollowing) { endGame("Thank you. Hahaha…"); }
-    }
-    render();
-    requestAnimationFrame(gameLoop);
+/** 音頻引擎：動態節奏與對白音效 **/
+function initAudio() {
+    if (audioCtx) return;
+    try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        mainGain = audioCtx.createGain(); mainGain.connect(audioCtx.destination);
+        mainGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        playDynamicNote();
+    } catch(e) { console.error("Audio failed"); }
 }
 
-function render() {
-    ctx.fillStyle = (difficulty === 'hard') ? "#444" : "#bbb";
-    ctx.fillRect(0,0,400,400);
-    ctx.save();
-    ctx.translate(200 - player.x*GRID_RES, 200 - player.y*GRID_RES);
+function playDynamicNote() {
+    if(isGameOver) return;
+    let interval = 1200;
+    if (enemies.length > 0 && !isPaused) {
+        let minDist = 100;
+        enemies.forEach(e => {
+            let d = Math.sqrt((e.x - player.x)**2 + (e.y - player.y)**2);
+            if (d < minDist) minDist = d;
+        });
+        interval = Math.max(150, Math.min(1200, (minDist - 2) * 60 + 150));
+    }
+    if (!isPaused && audioCtx) {
+        const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+        osc.type = 'triangle'; osc.frequency.value = melodyNotes[noteIndex % 6] * (gameState === 'RETURN_GREY' ? 0.4 : 1);
+        g.gain.setValueAtTime(0, audioCtx.currentTime);
+        g.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.1);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc.connect(g).connect(mainGain);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+        noteIndex++;
+    }
+    setTimeout(playDynamicNote, interval);
+}
+
+function playSfx(f, d, vol = 0.6, type = 'square') {
+    if(!audioCtx) return;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + d);
+    o.connect(g).connect(mainGain); o.start(); o.stop(audioCtx.currentTime + d);
+}
+
+/** 遊戲初始化與邏輯更新 **/
+function startGame(mode) {
+    difficulty = mode;
+    document.getElementById('overlay').style.display = 'none';
+    initAudio();
+    
+    // 生成地圖
+    map = Array.from({length: WORLD_SIZE}, () => Array.from({length: WORLD_SIZE}, () => Math.random() < 0.28 ? 1 : 0));
+    for(let i=0; i<WORLD_SIZE; i++) map[i] = map[i] = map[i] = map[i] = 1;
+
+    const clr = (cx, cy) => {
+        let ix = Math.floor(cx), iy = Math.floor(cy);
+        for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) if(map[iy+i]) map[iy+i][ix+j] = 0;
+    };
+    
+    player = {x:50.5, y:50.5, vx:0, vy:0}; clr(player.x, player.y);
+    do { greyDot.x = 10 + Math.random()*80; greyDot.y = 10 + Math.random()*80; } 
+    while(Math.sqrt((greyDot.x-player.x)**2 + (greyDot.y-player.y)**2) < 20 || map[Math.floor(greyDot.y)][Math.floor(greyDot.x)] === 1);
+    clr(greyDot.x, greyDot.y);
+
+    requestAnimationFrame(update);
+}
+
+function triggerStory(msg, next) {
+    isPaused = true;
+    player.vx = 0; player.vy = 0;
+    const ov = document.getElementById('story-overlay');
+    document.getElementById('story-text').innerText = msg;
+    ov.style.display = 'flex';
+    playSfx(100, 1, 0.8, 'sawtooth');
+    const onTouch = () => {
+        ov.style.display = 'none'; ov.removeEventListener('click', onTouch);
+        playSfx(800, 0.2, 0.5, 'sine');
+        if(next) next(); else isPaused = false;
+    };
+    ov.addEventListener('click', onTouch);
+}
+
+function startWarning() {
+    isPaused = true; 
+    const gc = document.getElementById('game-container'), wo = document.getElementById('warning-overlay');
+    gc.classList.add('shake'); wo.style.display = 'flex';
+    playSfx(60, 3, 0.9, 'sawtooth');
+    setTimeout(() => {
+        gc.classList.remove('shake'); wo.style.display = 'none';
+        isPaused = false; 
+    }, 3000);
+}
+
+function update() {
+    if(isGameOver) return;
+    
+    // 渲染 (必須置於 isPaused 之外，否則暫停會黑屏)
+    ctx.fillStyle = (difficulty === 'hard') ? "#444" : "#bbb"; ctx.fillRect(0,0,350,350);
+    ctx.save(); ctx.translate(175 - player.x*GRID_RES, 175 - player.y*GRID_RES);
     ctx.fillStyle = "#000";
-    for(let y=Math.floor(player.y-6); y<player.y+6; y++) {
-        for(let x=Math.floor(player.x-6); x<player.x+6; x++) {
-            if(y>=0 && y<100 && x>=0 && x<100 && map[y][x] === 1) ctx.fillRect(x*GRID_RES, y*GRID_RES, GRID_RES+0.5, GRID_RES+0.5);
+    let viewX = Math.floor(player.x), viewY = Math.floor(player.y);
+    for(let y = viewY - 10; y <= viewY + 10; y++) {
+        for(let x = viewX - 10; x <= viewX + 10; x++) {
+            if(y >= 0 && y < 100 && x >= 0 && x < 100 && map[y][x] === 1) ctx.fillRect(x*GRID_RES, y*GRID_RES, GRID_RES+0.5, GRID_RES+0.5);
         }
     }
     ctx.fillStyle = "#888"; ctx.beginPath(); ctx.arc(greyDot.x*GRID_RES, greyDot.y*GRID_RES, 8, 0, 7); ctx.fill();
-    if(gameState !== 'FIND_GREY' && gameState !== 'END') {
-        ctx.fillStyle = "red";
-        let rx = redFollowing ? player.x + (player.vx||0)*0.7 : redDot.x;
-        let ry = redFollowing ? player.y + (player.vy||0)*0.7 : redDot.y;
-        ctx.beginPath(); ctx.arc(rx*GRID_RES, ry*GRID_RES, 8, 0, 7); ctx.fill();
+    if(gameState !== 'FIND_GREY') {
+        let rx, ry, angle = Math.atan2(player.vy, player.vx); if(player.vx===0 && player.vy===0) angle = Math.PI;
+        rx = redFollowing ? player.x - Math.cos(angle)*0.6 : redDot.x; ry = redFollowing ? player.y - Math.sin(angle)*0.6 : redDot.y;
+        if(redFollowing) {
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(player.x*GRID_RES, player.y*GRID_RES); ctx.lineTo(rx*GRID_RES, ry*GRID_RES); ctx.stroke();
+        }
+        ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(rx*GRID_RES, ry*GRID_RES, 8, 0, 7); ctx.fill();
     }
     enemies.forEach(e => {
-        ctx.beginPath();
-        ctx.fillStyle = (difficulty === 'hard') ? `rgba(204, 204, 0, ${0.4+Math.random()*0.6})` : "#cc0";
+        ctx.beginPath(); ctx.fillStyle = (difficulty==='hard') ? `rgba(204,204,0,${0.4+Math.random()*0.6})` : "#cc0";
         ctx.arc(e.x*GRID_RES, e.y*GRID_RES, 7, 0, 7); ctx.fill();
     });
     ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(player.x*GRID_RES, player.y*GRID_RES, 10, 0, 7); ctx.fill();
     ctx.restore();
+
+    // 箭頭顏色飽和度 0，亮度與距離掛鉤
+    let target = (gameState === 'FIND_GREY' || gameState === 'RETURN_GREY') ? greyDot : redDot;
+    let dx = target.x - player.x, dy = target.y - player.y, dist = Math.sqrt(dx*dx + dy*dy);
+    let b = Math.min(220, Math.max(0, (dist - 5) * (220 / 45))); 
+    arrow.style.transform = `translateX(-50%) rotate(${Math.atan2(dy, dx) + Math.PI/2}rad)`;
+    arrow.style.borderBottomColor = `rgb(${b},${b},${b})`;
+
+    if(!isPaused) {
+        const baseSpd = 0.04;
+        let curSpd = redFollowing ? baseSpd * 0.9 : baseSpd;
+        let nX = player.x + player.vx * curSpd, nY = player.y + player.vy * curSpd;
+        if(map[Math.floor(player.y)][Math.floor(nX + (player.vx>0?0.2:-0.2))] === 0) player.x = nX;
+        if(map[Math.floor(nY + (player.vy>0?0.2:-0.2))][Math.floor(player.x)] === 0) player.y = nY;
+
+        enemies.forEach(e => {
+            let edx = player.x - e.x, edy = player.y - e.y, ed = Math.sqrt(edx*edx + edy*edy);
+            if(ed < 0.45) end('You evil kidnapper!');
+            let eSpd = curSpd; 
+            let evx = (edx/ed)*eSpd, evy = (edy/ed)*eSpd;
+            if(map[Math.floor(e.y)][Math.floor(e.x + (evx>0?0.1:-0.1))] === 0) e.x += evx;
+            if(map[Math.floor(e.y + (evy>0?0.1:-0.1))][Math.floor(e.x)] === 0) e.y += evy;
+        });
+
+        if (dist < 0.6) {
+            if (gameState === 'FIND_GREY') {
+                gameState = 'FIND_RED';
+                triggerStory("Bring Me the Red Dot", () => {
+                    let rx, ry; do { rx = 10+Math.random()*80; ry = 10+Math.random()*80; } 
+                    while(Math.sqrt((rx-player.x)**2+(ry-player.y)**2) < 30 || map[Math.floor(ry)][Math.floor(rx)] === 1);
+                    redDot = {x:rx, y:ry}; isPaused = false;
+                });
+            } else if (gameState === 'FIND_RED' && !redFollowing) {
+                gameState = 'RETURN_GREY'; redFollowing = true;
+                triggerStory("No…no…please no", () => {
+                    startWarning();
+                    enemies = []; const spawnCount = (difficulty==='hard'?25:15);
+                    for(let i=0; i<spawnCount; i++){
+                        let ex, ey, found = false;
+                        for(let attempts=0; attempts<100; attempts++) {
+                            ex=5+Math.random()*90; ey=5+Math.random()*90;
+                            if(map[Math.floor(ey)][Math.floor(ex)]===0 && Math.sqrt((ex-player.x)**2+(ey-player.y)**2) > 12) { found = true; break; }
+                        }
+                        if(!found) { ex = (player.x > 50) ? 10 : 90; ey = (player.y > 50) ? 10 : 90; }
+                        enemies.push({x:ex, y:ey});
+                    }
+                });
+            } else if (gameState === 'RETURN_GREY' && redFollowing) {
+                triggerStory("Thank you. Hahaha…", () => { location.reload(); });
+            }
+        }
+    }
+    requestAnimationFrame(update);
 }
 
-function endGame(msg) {
-    isGameOver = true;
-    document.getElementById('end-msg').innerText = msg;
-    document.getElementById('end-screen').style.display = 'flex';
-    playSfx(60, 2);
-}
+function end(m) { isGameOver = true; document.getElementById('end-msg').innerText = m; document.getElementById('end-screen').style.display = 'flex'; playSfx(60, 2); }
 
-/** 控制與 App 防護機制 **/
+/** 操控：修正觸控與搖桿 **/
 const zone = document.getElementById('joystick-zone'), knob = document.getElementById('joystick-knob');
 const handleMove = (e) => {
-    e.preventDefault();
+    e.preventDefault(); if(isPaused || isGameOver) return;
     const rect = zone.getBoundingClientRect();
-    const t = e.touches ? e.touches[0] : e;
+    const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
     let dx = t.clientX - (rect.left + 70), dy = t.clientY - (rect.top + 70);
     let d = Math.min(50, Math.sqrt(dx*dx + dy*dy)), a = Math.atan2(dy, dx);
     knob.style.left = (70 + Math.cos(a)*d - 25) + 'px'; knob.style.top = (70 + Math.sin(a)*d - 25) + 'px';
@@ -234,18 +259,12 @@ const handleMove = (e) => {
 };
 zone.addEventListener('touchstart', handleMove, {passive:false});
 zone.addEventListener('touchmove', handleMove, {passive:false});
-const stopJ = () => { player.vx = 0; player.vy = 0; knob.style.left='45px'; knob.style.top='45px'; };
-zone.addEventListener('touchend', stopJ);
+zone.addEventListener('touchend', () => { player.vx = 0; player.vy = 0; knob.style.left='45px'; knob.style.top='45px'; });
 zone.addEventListener('mousedown', (e) => {
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', () => { window.removeEventListener('mousemove', handleMove); stopJ(); }, {once:true});
+    const mm = (me) => handleMove(me);
+    window.addEventListener('mousemove', mm);
+    window.addEventListener('mouseup', () => { window.removeEventListener('mousemove', mm); player.vx = 0; player.vy = 0; knob.style.left='45px'; knob.style.top='45px'; }, {once:true});
 });
-
-document.getElementById('start-normal').onclick = () => { startAudio(); setupGame('normal'); };
-document.getElementById('start-hard').onclick = () => { startAudio(); setupGame('hard'); };
-
-// 當 App 從後台恢復時恢復音頻
-document.addEventListener('visibilitychange', () => { if(!document.hidden && audioCtx) audioCtx.resume(); });
 </script>
 </body>
 </html>
