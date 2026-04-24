@@ -14,7 +14,7 @@
         #arrow { width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 45px solid #ddd; position: absolute; left: 50%; top: 5px; transform: translateX(-50%); }
         
         #game-container { position: relative; width: 350px; height: 350px; border: 4px solid #1a1a1a; overflow: hidden; background: #bbb; }
-        canvas { display: block; width: 350px; height: 350px; image-rendering: pixelated; }
+        canvas { display: block; background: transparent; width: 350px; height: 350px; }
         
         #story-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 500; cursor: pointer; text-align: center; padding: 20px; }
         #story-text { color: #fff; font-size: 20px; font-weight: bold; text-shadow: 0 0 15px red; margin-bottom: 20px; }
@@ -43,12 +43,12 @@
 
 <div id="overlay">
     <h1 style="letter-spacing: 8px; color: #800;">THE ECHOING DARK</h1>
-    <button class="btn" id="btn-normal">NORMAL</button>
-    <button class="btn" id="btn-hard" style="color:#f00;">HARD</button>
+    <button class="btn" onclick="preStart('normal')">NORMAL</button>
+    <button class="btn" onclick="preStart('hard')" style="color:#f00;">HARD</button>
 </div>
 
 <div id="end-screen" style="display:none;">
-    <div id="end-msg" style="font-size: 20px; margin-bottom:30px; color: #f00; font-weight:bold;"></div>
+    <div id="end-msg" style="font-size: 20px; margin-bottom:30px; color: #f00; font-weight:bold; padding: 0 20px;"></div>
     <button class="btn" onclick="location.reload()">RESTART</button>
 </div>
 
@@ -57,23 +57,50 @@ const WORLD_SIZE = 100, GRID_RES = 35;
 const melodyNotes = [220.0, 233.1, 261.6, 311.1, 349.2, 415.3];
 let map = [], player = {x:50.5, y:50.5, vx:0, vy:0}, greyDot = {x:0,y:0}, redDot = {x:0,y:0};
 let enemies = [], gameState = 'FIND_GREY', difficulty = 'normal', isPaused = false, redFollowing = false, isGameOver = false;
-let audioCtx, mainGain, noteIndex = 0;
+let audioCtx, mainGain, noteIndex = 0, rafId;
 
 const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
 const arrow = document.getElementById('arrow');
 
-/** 1. 音頻引擎 **/
-function initAudio() {
-    if (audioCtx) return;
-    try {
+function preStart(mode) {
+    difficulty = mode;
+    document.getElementById('overlay').style.display = 'none';
+    
+    // 初始化音頻
+    if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         mainGain = audioCtx.createGain(); mainGain.connect(audioCtx.destination);
         mainGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        playDynamic();
-    } catch(e) {}
+        playDynamicNote();
+    }
+    
+    // 初始化地圖
+    map = [];
+    for(let y=0; y<WORLD_SIZE; y++) {
+        map[y] = [];
+        for(let x=0; x<WORLD_SIZE; x++) {
+            map[y][x] = (x === 0 || y === 0 || x === 99 || y === 99 || Math.random() < 0.28) ? 1 : 0;
+        }
+    }
+    
+    // 清理空間
+    const clr = (cx, cy) => {
+        let ix = Math.floor(cx), iy = Math.floor(cy);
+        for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) if(map[iy+i]) map[iy+i][ix+j] = 0;
+    };
+    
+    player = {x:50.5, y:50.5, vx:0, vy:0};
+    clr(player.x, player.y);
+    
+    do { greyDot.x = 10 + Math.random()*80; greyDot.y = 10 + Math.random()*80; } 
+    while(Math.sqrt((greyDot.x-50.5)**2+(greyDot.y-50.5)**2) < 20 || map[Math.floor(greyDot.y)][Math.floor(greyDot.x)] === 1);
+    clr(greyDot.x, greyDot.y);
+
+    if(rafId) cancelAnimationFrame(rafId);
+    requestAnimationFrame(update);
 }
 
-function playDynamic() {
+function playDynamicNote() {
     if(isGameOver) return;
     let interval = 1200;
     if (enemies.length > 0 && !isPaused) {
@@ -93,7 +120,7 @@ function playDynamic() {
         osc.connect(g).connect(mainGain); osc.start(); osc.stop(audioCtx.currentTime + 0.6);
         noteIndex++;
     }
-    setTimeout(playDynamic, interval);
+    setTimeout(playDynamicNote, interval);
 }
 
 function playSfx(f, d, vol = 0.6) {
@@ -105,45 +132,23 @@ function playSfx(f, d, vol = 0.6) {
     o.connect(g).connect(mainGain); o.start(); o.stop(audioCtx.currentTime + d);
 }
 
-/** 2. 啟動與地圖生成 **/
-function startApp(mode) {
-    difficulty = mode;
-    document.getElementById('overlay').style.display = 'none';
-    initAudio();
-    
-    // 強制重置數據
-    map = Array.from({length: WORLD_SIZE}, () => Array.from({length: WORLD_SIZE}, () => Math.random() < 0.28 ? 1 : 0));
-    for(let i=0; i<WORLD_SIZE; i++) map[i] = map[i] = map[i] = map[i] = 1;
-    
-    const clr = (cx, cy) => {
-        let ix = Math.floor(cx), iy = Math.floor(cy);
-        for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) if(map[iy+i]) map[iy+i][ix+j] = 0;
-    };
-    player = {x:50.5, y:50.5, vx:0, vy:0}; clr(player.x, player.y);
-    do { greyDot.x = 10 + Math.random()*80; greyDot.y = 10 + Math.random()*80; } 
-    while(Math.sqrt((greyDot.x-50.5)**2+(greyDot.y-50.5)**2) < 20 || map[Math.floor(greyDot.y)][Math.floor(greyDot.x)] === 1);
-    clr(greyDot.x, greyDot.y);
-
-    requestAnimationFrame(update);
-}
-
-/** 3. 劇情互動 **/
 function triggerStory(msg, next) {
     isPaused = true; player.vx = 0; player.vy = 0;
     const ov = document.getElementById('story-overlay');
     document.getElementById('story-text').innerText = msg;
     ov.style.display = 'flex';
     playSfx(100, 1, 0.8);
-    const clickOnce = () => {
-        ov.style.display = 'none'; ov.removeEventListener('click', clickOnce);
+    const handler = () => {
+        ov.style.display = 'none'; ov.removeEventListener('click', handler);
         playSfx(800, 0.2, 0.5);
-        if(next) next(); else isPaused = false;
+        if(next) next();
+        isPaused = false;
     };
-    ov.addEventListener('click', clickOnce);
+    ov.addEventListener('click', handler);
 }
 
 function startWarning() {
-    isPaused = true;
+    isPaused = true; 
     const gc = document.getElementById('game-container'), wo = document.getElementById('warning-overlay');
     gc.classList.add('shake'); wo.style.display = 'flex';
     playSfx(60, 3, 0.9);
@@ -153,18 +158,14 @@ function startWarning() {
     }, 3000);
 }
 
-/** 4. 遊戲主循環 (渲染 + 邏輯) **/
 function update() {
     if(isGameOver) return;
     
-    // --- 渲染部分 (放在最前確保畫面不消失) ---
-    ctx.fillStyle = (difficulty === 'hard') ? "#444" : "#bbb";
-    ctx.fillRect(0,0,350,350);
-    
+    // 渲染必須獨立於 isPaused 之外，確保暫停時不黑屏
+    ctx.fillStyle = (difficulty === 'hard') ? "#444" : "#bbb"; ctx.fillRect(0,0,350,350);
     if (map.length > 0) {
         ctx.save();
         ctx.translate(175 - player.x*GRID_RES, 175 - player.y*GRID_RES);
-        
         ctx.fillStyle = "#000";
         for(let y = Math.floor(player.y-10); y <= player.y+10; y++) {
             for(let x = Math.floor(player.x-10); x <= player.x+10; x++) {
@@ -192,11 +193,11 @@ function update() {
         ctx.restore();
     }
 
-    // --- 邏輯部分 ---
+    // 邏輯處理
     let target = (gameState === 'FIND_GREY' || gameState === 'RETURN_GREY') ? greyDot : redDot;
-    let tdx = target.x - player.x, tdy = target.y - player.y, dist = Math.sqrt(tdx*tdx + tdy*tdy);
+    let dx = target.x - player.x, dy = target.y - player.y, dist = Math.sqrt(dx*dx + dy*dy);
     let b = Math.min(220, Math.max(0, (dist - 5) * (220 / 45))); 
-    arrow.style.transform = `translateX(-50%) rotate(${Math.atan2(tdy, tdx) + Math.PI/2}rad)`;
+    arrow.style.transform = `translateX(-50%) rotate(${Math.atan2(dy, dx) + Math.PI/2}rad)`;
     arrow.style.borderBottomColor = `rgb(${b},${b},${b})`;
 
     if(!isPaused) {
@@ -205,7 +206,6 @@ function update() {
         let nX = player.x + player.vx * curSpd, nY = player.y + player.vy * curSpd;
         if(map[Math.floor(player.y)][Math.floor(nX + (player.vx>0?0.2:-0.2))] === 0) player.x = nX;
         if(map[Math.floor(nY + (player.vy>0?0.2:-0.2))][Math.floor(player.x)] === 0) player.y = nY;
-
         enemies.forEach(e => {
             let edx = player.x - e.x, edy = player.y - e.y, ed = Math.sqrt(edx*edx + edy*edy);
             if(ed < 0.45) end('You evil kidnapper!');
@@ -228,8 +228,12 @@ function update() {
                     startWarning();
                     enemies = []; const spawnCount = (difficulty==='hard'?25:15);
                     for(let i=0; i<spawnCount; i++){
-                        let ex, ey; do { ex=5+Math.random()*90; ey=5+Math.random()*90; } 
-                        while(map[Math.floor(ey)][Math.floor(ex)]===1 || Math.sqrt((ex-player.x)**2+(ey-player.y)**2) < 12);
+                        let ex, ey, found = false;
+                        for(let attempts=0; attempts<100; attempts++) {
+                            ex=5+Math.random()*90; ey=5+Math.random()*90;
+                            if(map[Math.floor(ey)][Math.floor(ex)]===0 && Math.sqrt((ex-player.x)**2+(ey-player.y)**2) > 12) { found = true; break; }
+                        }
+                        if(!found) { ex = (player.x > 50) ? 10 : 90; ey = (player.y > 50) ? 10 : 90; }
                         enemies.push({x:ex, y:ey});
                     }
                 });
@@ -238,25 +242,24 @@ function update() {
             }
         }
     }
-    requestAnimationFrame(update);
+    rafId = requestAnimationFrame(update);
 }
 
 function end(m) { isGameOver = true; document.getElementById('end-msg').innerText = m; document.getElementById('end-screen').style.display = 'flex'; playSfx(60, 2); }
 
-/** 5. 搖桿交互修復 **/
+// 搖桿偵測 - 穩定版
 const zone = document.getElementById('joystick-zone'), knob = document.getElementById('joystick-knob');
 const handleMove = (e) => {
     e.preventDefault(); if(isPaused || isGameOver) return;
     const rect = zone.getBoundingClientRect();
     const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
-    const dx = t.clientX - (rect.left + rect.width / 2);
-    const dy = t.clientY - (rect.top + rect.height / 2);
-    const d = Math.min(rect.width / 2 - 10, Math.sqrt(dx*dx + dy*dy));
-    const a = Math.atan2(dy, dx);
-    knob.style.left = (rect.width/2 + Math.cos(a)*d - 25) + 'px';
-    knob.style.top = (rect.height/2 + Math.sin(a)*d - 25) + 'px';
-    player.vx = Math.cos(a)*(d/(rect.width/2));
-    player.vy = Math.sin(a)*(d/(rect.width/2));
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    let dx = t.clientX - centerX, dy = t.clientY - centerY;
+    let d = Math.min(rect.width / 2 - 10, Math.sqrt(dx*dx + dy*dy));
+    let a = Math.atan2(dy, dx);
+    knob.style.left = (rect.width/2 + Math.cos(a)*d - 25) + 'px'; knob.style.top = (rect.height/2 + Math.sin(a)*d - 25) + 'px';
+    player.vx = Math.cos(a)*(d/50); player.vy = Math.sin(a)*(d/50);
 };
 zone.addEventListener('touchstart', handleMove, {passive:false});
 zone.addEventListener('touchmove', handleMove, {passive:false});
@@ -266,9 +269,6 @@ zone.addEventListener('mousedown', (e) => {
     window.addEventListener('mousemove', mm);
     window.addEventListener('mouseup', () => { window.removeEventListener('mousemove', mm); player.vx = 0; player.vy = 0; knob.style.left='45px'; knob.style.top='45px'; }, {once:true});
 });
-
-document.getElementById('btn-normal').onclick = () => startApp('normal');
-document.getElementById('btn-hard').onclick = () => startApp('hard');
 </script>
 </body>
 </html>
